@@ -6,3 +6,5 @@ composer.lock
 /tmp
 .idea/
 /bin/test
+.phpunit.result.cache 
+.vscode/
