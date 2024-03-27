@@ -386,7 +386,7 @@ EOT;
 	public function testRelativeURLResolvedWithFinalURL() {
 		$mf = Mf2\fetch('http://aaron.pk/4Zn5');
 
-		$this->assertEquals('https://aaronparecki.com/img/1240x0/2014/12/23/5/photo.jpeg', $mf['items'][0]['properties']['photo'][0]);
+		$this->assertEquals('https://aaronparecki.com/img/1240x,q60/2014/12/23/5/photo.jpeg', $mf['items'][0]['properties']['photo'][0]);
 	}
 
 	public function testScriptTagContentsRemovedFromTextValue() {

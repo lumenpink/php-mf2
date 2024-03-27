@@ -7,7 +7,6 @@ use DOMElement;
 use DOMXPath;
 use DOMNode;
 use DOMNodeList;
-use Exception;
 use SplObjectStorage;
 use stdClass;
 
@@ -187,7 +186,7 @@ function nestedMfPropertyNamesFromClass($class) {
  * @param string $prefix The prefix to look for
  * @return mixed See return value of mf2\Parser::mfNameFromClass()
  */
-function mfNamesFromElement(\DOMElement $e, $prefix = 'h-') {
+function mfNamesFromElement(DOMElement $e, $prefix = 'h-') {
 	$class = $e->getAttribute('class');
 	return mfNamesFromClass($class, $prefix);
 }
@@ -195,7 +194,7 @@ function mfNamesFromElement(\DOMElement $e, $prefix = 'h-') {
 /**
  * Wraps nestedMfPropertyNamesFromClass to handle an element as input
  */
-function nestedMfPropertyNamesFromElement(\DOMElement $e) {
+function nestedMfPropertyNamesFromElement(DOMElement $e) {
 	$class = $e->getAttribute('class');
 	return nestedMfPropertyNamesFromClass($class);
 }
@@ -367,14 +366,10 @@ class Parser {
 					$input = $emptyDocDefault;
 			}
 				
-			if (class_exists('Masterminds\\HTML5')) {
-					$doc = new \Masterminds\HTML5(array('disable_html_ns' => true));
-					$doc = $doc->loadHTML($input);
-			} else {
-				$doc = new DOMDocument();
-				@$doc->loadHTML(unicodeToHtmlEntities($input), \LIBXML_NOWARNING);
-			}
-		} elseif (is_a($input, 'DOMDocument')) {
+			$doc = new DOMDocument();
+			@$doc->loadHTML(unicodeToHtmlEntities($input), \LIBXML_NOWARNING);
+			
+			} elseif (is_a($input, 'DOMDocument')) {
 			$doc = clone $input;
 		} else {
 			$doc = new DOMDocument();
@@ -416,7 +411,7 @@ class Parser {
 		$this->jsonMode = $jsonMode;
 	}
 
-	private function elementPrefixParsed(\DOMElement $e, $prefix) {
+	private function elementPrefixParsed(DOMElement $e, $prefix) {
 		if (!$this->parsed->contains($e))
 			$this->parsed->attach($e, array());
 
@@ -431,12 +426,12 @@ class Parser {
 	 * @param string $prefix
 	 * @return bool
 	 */
-	private function isElementParsed(\DOMElement $e, $prefix) {
+	private function isElementParsed(DOMElement $e, $prefix) {
 		if (!$this->parsed->contains($e)) {
 			return false;
 		}
 
-		$prefixes = $this->parsed[$e];
+		$prefixes = (array) $this->parsed[$e] ;
 
 		if (!in_array($prefix, $prefixes)) {
 			return false;
@@ -451,9 +446,9 @@ class Parser {
 	 * @param string $property
 	 * @return bool
 	 */
-	private function isElementUpgraded(\DOMElement $el, $property) {
+	private function isElementUpgraded(DOMElement $el, $property) {
 		if ( $this->upgraded->contains($el) ) {
-			if ( in_array($property, $this->upgraded[$el]) ) {
+			if ( in_array($property, (array) $this->upgraded[$el]) ) {
 				return true;
 			}
 		}
@@ -497,7 +492,9 @@ class Parser {
 					if ($child->nodeType === XML_TEXT_NODE) {
 							$output .= str_replace(array("\t", "\n", "\r") , ' ', $child->textContent);
 					} else if ($child->nodeType === XML_ELEMENT_NODE) {
-							$tagName = strtoupper($child->tagName);
+							if ($child instanceof DOMElement) {
+								$tagName = strtoupper($child->tagName);
+							}
 							if (in_array($tagName, array('SCRIPT', 'STYLE'))) {
 									continue;
 							} else if ($tagName === 'IMG') {
@@ -597,7 +594,7 @@ class Parser {
 	 * @param string $separator = '' if multiple value-title elements, join with this string
 	 * @return string|null the parsed value or null if value-class or -title aren’t in use
 	 */
-	public function parseValueClassTitle(\DOMElement $e, $separator = '') {
+	public function parseValueClassTitle(DOMElement $e, $separator = '') {
 		$valueClassElements = $this->xpath->query('./*[contains(concat(" ", normalize-space(@class), " "), " value ")]', $e);
 
 		if ($valueClassElements->length !== 0) {
@@ -633,7 +630,7 @@ class Parser {
 	 * @return string The plaintext value of $p, dependant on type
 	 * @todo Make this adhere to value-class
 	 */
-	public function parseP(\DOMElement $p) {
+	public function parseP(DOMElement $p) {
 		$classTitle = $this->parseValueClassTitle($p, ' ');
 
 		if ($classTitle !== null) {
@@ -664,7 +661,7 @@ class Parser {
 	 * @return string The plaintext value of $u, dependant on type
 	 * @todo make this adhere to value-class
 	 */
-	public function parseU(\DOMElement $u) {
+	public function parseU(DOMElement $u) {
 		if (($u->tagName == 'a' or $u->tagName == 'area' or $u->tagName == 'link') and $u->hasAttribute('href')) {
 			$uValue = $u->getAttribute('href');
 		} elseif ( $u->tagName == 'img' and $u->hasAttribute('src') ) {
@@ -696,7 +693,7 @@ class Parser {
 	 * @param string $impliedTimezone
 	 * @return string The datetime string found
 	 */
-	public function parseDT(\DOMElement $dt, &$dates = array(), &$impliedTimezone = null) {
+	public function parseDT(DOMElement $dt, &$dates = array(), &$impliedTimezone = null) {
 		// Check for value-class pattern
 		$valueClassChildren = $this->xpath->query('./*[contains(concat(" ", normalize-space(@class), " "), " value ") or contains(concat(" ", normalize-space(@class), " "), " value-title ")]', $dt);
 		$dtValue = false;
@@ -888,13 +885,9 @@ class Parser {
 
 	/**
 	 * 	Given the root element of some embedded markup, return a string representing that markup
-	 *
-	 * 	@param DOMElement $e The element to parse
-	 * 	@return string $e’s innerHTML
-	 *
-	 * @todo need to mark this element as e- parsed so it doesn’t get parsed as it’s parent’s e-* too
+	 *  @todo need to mark this element as e- parsed so it doesn’t get parsed as it’s parent’s e-* too
 	 */
-	public function parseE(\DOMElement $e) {
+	public function parseE(DOMElement $e): string|array {
 		$classTitle = $this->parseValueClassTitle($e);
 
 		if ($classTitle !== null)
@@ -934,7 +927,7 @@ class Parser {
 		return $return;
 	}
 
-	private function removeTags(\DOMElement &$e, $tagName) {
+	private function removeTags(DOMElement &$e, $tagName) {
 		while(($r = $e->getElementsByTagName($tagName)) && $r->length) {
 			$r->item(0)->parentNode->removeChild($r->item(0));
 		}
@@ -948,7 +941,7 @@ class Parser {
 	 * @param bool $has_nested_mf Whether this microformat has a nested microformat
 	 * @return array A representation of the values contained within microformat $e
 	 */
-	public function parseH(\DOMElement $e, $is_backcompat = false, $has_nested_mf = false) {
+	public function parseH(DOMElement $e, bool $is_backcompat = false, bool $has_nested_mf = false) : ?array{
 		// If it’s already been parsed (e.g. is a child mf), skip
 		if ($this->parsed->contains($e)) {
 			return null;
@@ -1113,10 +1106,12 @@ class Parser {
 					$nameElement = $this->xpath->query($xpath, $e);
 					if ($nameElement !== false && $nameElement->length === 1) {
 						$nameElement = $nameElement->item(0);
-						if ($nameElement->tagName === 'img' || $nameElement->tagName === 'area') {
+						if ($nameElement instanceof DOMElement && ($nameElement->tagName === 'img' || $nameElement->tagName === 'area')) {
 							$name = $nameElement->getAttribute('alt');
 						} else {
-							$name = $nameElement->getAttribute('title');
+							if ($nameElement instanceof DOMElement) {
+								$name = $nameElement->getAttribute('title');
+							}
 						}
 						break;
 					}
@@ -1156,7 +1151,13 @@ class Parser {
 				foreach ($xpaths as $xpath) {
 					$url = $this->xpath->query($xpath, $e);
 					if ($url !== false && $url->length === 1) {
-						$return['url'][] = $this->resolveUrl($url->item(0)->getAttribute('href'));
+						if ($url !== false && $url->length === 1 && $url->item(0) instanceof DOMElement) {
+							/** @var DOMElement $item */
+							$item = $url->item(0);
+							if ( $item->hasAttribute('href')) {							
+								$return['url'][] = $this->resolveUrl($item->getAttribute('href'));
+							}
+						}
 						break;
 					}
 				}
@@ -1206,7 +1207,7 @@ class Parser {
 	/**
 	 * @see http://microformats.org/wiki/microformats2-parsing#parsing_for_implied_properties
 	 */
-	public function parseImpliedPhoto(\DOMElement $e) {
+	public function parseImpliedPhoto(DOMElement $e) {
 
 		// img.h-x[src]
 		if ($e->tagName == 'img') {
@@ -1233,6 +1234,7 @@ class Parser {
 			$els = $this->xpath->query($path, $e);
 
 			if ($els !== false && $els->length === 1) {
+				/** @var DOMElement $el */
 				$el = $els->item(0);
 				if ($el->tagName == 'img') {
 					$return = $this->parseImg($el);
@@ -1750,7 +1752,7 @@ class Parser {
 	 * Check an element for mf2 h-* class, typically to determine if backcompat should be used
 	 * @param DOMElement $el
 	 */
-	public function hasRootMf2(\DOMElement $el) {
+	public function hasRootMf2(DOMElement $el) {
 		$class = str_replace(array("\t", "\n"), ' ', $el->getAttribute('class'));
 
 		// Check for valid mf2 root classnames, not just any classname with a h- prefix.
